@@ -8,7 +8,8 @@ public class Sample
 {
     public static void Main(string[] args)
     {
-        Test(5);
+        var y = 4 + 3;
+        Test(y);
     }
 
     public void Test(int x)
@@ -22,12 +23,13 @@ public class Sample
             Console.WriteLine(""Smaller"");
         }
 
-        Hix();
+        var message = ""vlakas"";
+        Hix(message);
     }
 
-    private void Hix()
+    private void Hix(string message)
     {
-        Console.WriteLine(""EIMAI O HIX"");
+        Console.WriteLine($""EIMAI O HIX, {message}"");
     }
 }
 ";
@@ -37,75 +39,90 @@ var root = tree.GetRoot();
 
 string flowchart = "digraph Flowchart {\n";
 
-int nodeId = 0;
+int nodeId = 1;
+int parentId = 0;
 Dictionary<string, int> methodNodes = new();
+Dictionary<string, string> variables = new();
 
 foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
 {
     methodNodes[method.Identifier.Text] = nodeId;
 
-    flowchart += $"    Node{nodeId} [shape=box, label=\"{method.Identifier.Text}()\"];\n";
+    WriteLine(method.Identifier);
+    if (nodeId == 1)
+    {
+        flowchart += $"    Node0 [shape=box, label=\"{method.Identifier.Text}()\"];\n";
+    }
 
     foreach (var statement in method.Body.Statements)
     {
-        flowchart += ProcessStatement(statement, ref nodeId, $"Node{nodeId}", methodNodes);
+        flowchart += ProcessStatement(statement, ref nodeId, $"Node{parentId}", methodNodes, variables);
+        parentId++;
     }
 }
 
 flowchart += "}\n";
-
 File.WriteAllText("flowchart.dot", flowchart);
-
 Process.Start("dot", "-Tpng flowchart.dot -o flowchart.png");
 
-Console.WriteLine("Flowchart generated: flowchart.dot & flowchart.png");
+WriteLine("Flowchart generated: flowchart.dot & flowchart.png");
 
 static string ProcessStatement(
     StatementSyntax statement,
     ref int nodeId,
     string parentNode,
-    Dictionary<string, int> methodNodes
+    Dictionary<string, int> methodNodes,
+    Dictionary<string, string> variables
 )
 {
     string output = "";
+    int currentId = nodeId++;
 
-    if (statement is IfStatementSyntax ifStmt)
+    if (statement is LocalDeclarationStatementSyntax varDecl)
     {
-        int currentId = nodeId++;
-        output += $"    Node{currentId} [shape=diamond, label=\"{ifStmt.Condition.ToString().Replace("\"", "\\\"")}\"];\n";
+        var variableName = varDecl.Declaration.Variables.First().Identifier.Text;
+        var variableValue = varDecl.Declaration.Variables.First().Initializer?.Value.ToString() ?? "null";
+        variables[variableName] = variableValue;
+
+        if (varDecl.Declaration.Variables.First().Initializer?.Value is BinaryExpressionSyntax binaryExpr)
+        {
+            int evaluatedValue = EvaluateBinaryExpression(binaryExpr);
+            variables[variableName] = evaluatedValue.ToString();
+
+            output += $"    Node{currentId} [shape=ellipse, label=\"{variableName} = {varDecl.Declaration.Variables.First().Initializer.Value}\"];\n";
+            output += $"    {parentNode} -> Node{currentId};\n";
+
+            return output;
+        }
+
+        output += $"    Node{currentId} [shape=ellipse, label=\"{variableName} = {variableValue.Replace("\"", "\\\"")}\"];\n";
         output += $"    {parentNode} -> Node{currentId};\n";
 
-        int thenId = nodeId++;
-        output += $"    Node{currentId} -> Node{thenId} [label=\"Yes\"];\n";
+        return output;
+    }
 
-        if (ifStmt.Statement is BlockSyntax ifBlock)
+    if (statement is ExpressionStatementSyntax exprStmt)
+    {
+        if (exprStmt.Expression is InvocationExpressionSyntax invocationExpr)
         {
-            foreach (var stmt in ifBlock.Statements)
+            var invocationText = invocationExpr.ToString();
+            foreach (var variable in variables)
             {
-                output += ProcessStatement(stmt, ref nodeId, $"Node{thenId}", methodNodes);
-            }
-        }
-        else
-        {
-            output += ProcessStatement(ifStmt.Statement, ref nodeId, $"Node{thenId}", methodNodes);
-        }
-
-        if (ifStmt.Else != null)
-        {
-            int elseId = nodeId++;
-            output += $"    Node{currentId} -> Node{elseId} [label=\"No\"];\n";
-
-            if (ifStmt.Else.Statement is BlockSyntax elseBlock)
-            {
-                foreach (var stmt in elseBlock.Statements)
+                if (invocationText.Contains($"{{{variable.Key}}}"))
                 {
-                    output += ProcessStatement(stmt, ref nodeId, $"Node{elseId}", methodNodes);
+                    var rawValue = variable.Value.Trim('"');
+                    invocationText = invocationText.Replace($"{{{variable.Key}}}", rawValue);
+                }
+                else
+                {
+                    invocationText = invocationText.Replace(variable.Key, variable.Value);
                 }
             }
-            else
-            {
-                output += ProcessStatement(ifStmt.Else.Statement, ref nodeId, $"Node{elseId}", methodNodes);
-            }
+
+            output += $"    Node{currentId} [shape=box, label=\"{invocationText.Replace("\"", "\\\"")}\"];\n";
+            output += $"    {parentNode} -> Node{currentId};\n";
+
+            return output;
         }
     }
 
@@ -113,19 +130,37 @@ static string ProcessStatement(
     {
         foreach (var stmt in blockStmt.Statements)
         {
-            output += ProcessStatement(stmt, ref nodeId, parentNode, methodNodes);
+            return ProcessStatement(stmt, ref nodeId, parentNode, methodNodes, variables);
         }
     }
 
-    if (statement is ExpressionStatementSyntax exprStmt2)
+    var statementText = statement.ToString();
+    foreach (var variable in variables)
     {
-        int currentId = nodeId;
-        WriteLine(exprStmt2);
-        output += $"    Node{currentId} [shape=box, label=\"{exprStmt2.ToString().Replace("\"", "\\\"")}\"];\n";
-        output += $"    {parentNode} -> Node{currentId};\n";
-
-        nodeId++;
+        statementText = statementText.Replace(variable.Key, variable.Value);
     }
 
+    output += $"    Node{currentId} [shape=box, label=\"{statementText.Replace("\"", "\\\"")}\"];\n";
+    output += $"    {parentNode} -> Node{currentId};\n";
+
     return output;
+}
+
+static int EvaluateBinaryExpression(BinaryExpressionSyntax binaryExpr)
+{
+    if (int.TryParse(binaryExpr.Left.ToString(), out int leftVal) &&
+        int.TryParse(binaryExpr.Right.ToString(), out int rightVal))
+    {
+        return binaryExpr.OperatorToken.Text switch
+        {
+            "+" => leftVal + rightVal,
+            "-" => leftVal - rightVal,
+            "*" => leftVal * rightVal,
+            "/" => rightVal != 0 ? leftVal / rightVal : 0,
+            "%" => rightVal != 0 ? leftVal % rightVal : 0,
+            _ => 0
+        };
+    }
+
+    return 0;
 }
