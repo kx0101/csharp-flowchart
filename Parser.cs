@@ -106,13 +106,14 @@ class Parser
         string parentNode)
     {
         var conditionText = ifStmt.Condition.ToString();
-        var output = $"    {parentNode} -> Node{currentId} [label=\"{conditionText}\"];\n" +
-                      $"    Node{currentId} [shape=diamond, label=\"{conditionText}\"];\n";
+        var output = $"    {parentNode} -> Node{currentId} [label=\"{conditionText}\"];\n";
 
         foreach (var variable in _variables)
         {
             conditionText = conditionText.Replace(variable.Key, variable.Value);
         }
+
+        output += $"    Node{currentId} [shape=diamond, label=\"{conditionText}\"];\n";
 
         var ifNodeId = currentId;
         var lastNodeId = ifNodeId;

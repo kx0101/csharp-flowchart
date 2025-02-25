@@ -1,9 +1,0 @@
-digraph Flowchart {
-    Node0 [shape=box, label="Main()"];
-    Node1 [shape=box, label="Test(5);"];
-    Node0 -> Node1;
-    Node2 [shape=box, label="Hix();"];
-    Node1 -> Node2;
-    Node3 [shape=box, label="Console.WriteLine(\"EIMAI O HIX\");"];
-    Node2 -> Node3;
-}

@@ -6,6 +6,12 @@ namespace CSharpFlowchart.Builders;
 class FlowchartBuilder
 {
     private StringBuilder _flowchart = new StringBuilder("digraph Flowchart {\n");
+    private string _outputPath;
+
+    public FlowchartBuilder(string outputPath)
+    {
+        _outputPath = outputPath;
+    }
 
     public void AddNode(int id, string label, string shape)
     {
@@ -34,9 +40,45 @@ class FlowchartBuilder
         _flowchart.AppendLine("}");
 
         var flowchartContent = _flowchart.ToString();
-        File.WriteAllText("flowchart.dot", flowchartContent);
+        var dotFilePath = $"{_outputPath}_flowchart.dot";
+        var pngFilePath = $"{_outputPath}_flowchart.png";
 
-        Process.Start("dot", "-Tpng flowchart.dot -o flowchart.png");
-        Console.WriteLine("Flowchart generated: flowchart.dot & flowchart.png");
+        File.WriteAllText(dotFilePath, flowchartContent);
+
+        try
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo
+            {
+                FileName = "dot",
+                Arguments = $"-Tpng \"{dotFilePath}\" -o \"{pngFilePath}\"",
+                UseShellExecute = false,
+                RedirectStandardError = true
+            };
+
+            using (var process = Process.Start(startInfo))
+            {
+                process.WaitForExit();
+
+                if (process.ExitCode != 0)
+                {
+                    string error = process.StandardError.ReadToEnd();
+                    Console.WriteLine($"Warning: Graphviz 'dot' command failed: {error}");
+                    Console.WriteLine("Flowchart DOT file was generated but PNG conversion failed.");
+                    Console.WriteLine("Make sure Graphviz is installed and 'dot' is in your PATH.");
+                }
+                else
+                {
+                    Console.WriteLine($"Flowchart generated successfully:");
+                    Console.WriteLine($"- DOT file: {dotFilePath}");
+                    Console.WriteLine($"- PNG file: {pngFilePath}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Couldn't run Graphviz 'dot' command: {ex.Message}");
+            Console.WriteLine($"Flowchart DOT file was generated at: {dotFilePath}");
+            Console.WriteLine("Make sure Graphviz is installed to generate the PNG visualization.");
+        }
     }
 }

@@ -2,10 +2,28 @@
 
 class Program
 {
-    static void Main()
+    static void Main(string[] args)
     {
-        var codeAnalyzer = new CodeAnalyzer();
-        codeAnalyzer.AnalyzeCode();
+        string filePath;
+
+        if (args.Length > 0)
+        {
+            filePath = args[0];
+        }
+        else
+        {
+            Console.Write("Enter path to C# file to analyze: ");
+            filePath = Console.ReadLine();
+        }
+
+        try
+        {
+            var codeAnalyzer = new CodeAnalyzer(filePath);
+            codeAnalyzer.AnalyzeCode();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
     }
 }
-

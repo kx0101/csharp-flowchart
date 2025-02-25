@@ -8,53 +8,39 @@ namespace CSharpFlowchart.CodeAnalyzer;
 
 class CodeAnalyzer
 {
-    private string code = @"
-public class Sample
-{
-    public static void Main(string[] args)
-    {
-        var x = 4 + 3;
-        Test(x);
-    }
-
-    public void Test(int x)
-    {
-        var z = 1;
-
-        if (x > 5)
-        {
-            Console.WriteLine(""Greater"");
-        }
-        else
-        {
-            Console.WriteLine(""Smaller"");
-        }
-
-        var message = ""vlakas"";
-        Hix(message);
-    }
-
-    private void Hix(string message)
-    {
-        Console.WriteLine($""EIMAI O HIX, {message}"");
-    }
-}
-";
-
+    private readonly string _code;
     private FlowchartBuilder _flowchartBuilder;
     private Dictionary<string, int> _methodNodes = new();
     private Dictionary<string, string> _variables = new();
     private Dictionary<string, List<string>> _methodParameters = new();
+    private string _outputPath;
+
+    public CodeAnalyzer(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException($"The file '{filePath}' does not exist.");
+        }
+
+        _code = File.ReadAllText(filePath);
+
+        var directory = Path.GetDirectoryName(filePath);
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
+        _outputPath = Path.Combine(directory, fileName);
+    }
 
     public void AnalyzeCode()
     {
-        var tree = CSharpSyntaxTree.ParseText(code);
+        Console.WriteLine("Parsing code...");
+        var tree = CSharpSyntaxTree.ParseText(_code);
         var root = tree.GetRoot();
 
-        _flowchartBuilder = new FlowchartBuilder();
+        _flowchartBuilder = new FlowchartBuilder(_outputPath);
 
+        Console.WriteLine("Analyzing methods...");
         AnalyzeMethods(root);
 
+        Console.WriteLine("Generating flowchart...");
         _flowchartBuilder.GenerateOutput();
     }
 
@@ -85,7 +71,8 @@ public class Sample
             {
                 var statement = method.Body.Statements[i];
                 var statementProcessor = new Parser(_methodNodes, _variables);
-                string result = statementProcessor.ProcessStatement(statement, ref nodeId, $"Node{parentId}");
+
+                var result = statementProcessor.ProcessStatement(statement, ref nodeId, $"Node{parentId}");
                 _flowchartBuilder.AppendRaw(result);
 
                 parentId = nodeId - 1;

@@ -1,5 +1,5 @@
 digraph Flowchart {
-    Node0 [shape=box, label="Main()"];
+    Node0 [shape=box, label="main()"];
     Node1 [shape=ellipse, label="x = 4 + 3"];
     Node0 -> Node1;
     Node2 [shape=box, label="Test(7)"];
@@ -7,7 +7,7 @@ digraph Flowchart {
     Node3 [shape=ellipse, label="z = 1"];
     Node2 -> Node3;
     Node3 -> Node4 [label="x > 5"];
-    Node4 [shape=diamond, label="x > 5"];
+    Node4 [shape=diamond, label="7 > 5"];
     Node5 [shape=box, label="Console.WriteLine(\"Greater\")"];
     Node4 -> Node5;
     Node6 [shape=ellipse, label="message = \"vlakas\""];
